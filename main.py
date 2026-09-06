@@ -12,7 +12,11 @@ from typing import Optional
 from fastapi import FastAPI, Header, HTTPException, Path, status
 from pydantic import BaseModel, Field
 
-API_KEY = os.getenv("API_KEY", "dev-key-cambiar-en-produccion")
+CLAVES_VALIDAS = {
+    clave
+    for clave in (os.getenv("API_KEY"), os.getenv("API_KEY_PREV"))
+    if clave
+}
 
 app = FastAPI(
     title="CRM Polizas API",
@@ -104,7 +108,7 @@ class IncidenciaOut(BaseModel):
 
 def validar_api_key(x_api_key: Optional[str]) -> None:
     """Comprueba la cabecera X-API-Key. Lanza 401 si no coincide."""
-    if x_api_key != API_KEY:
+    if x_api_key not in CLAVES_VALIDAS:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="API key invalida o ausente",
