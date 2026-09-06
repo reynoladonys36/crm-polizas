@@ -83,7 +83,7 @@ _contador_incidencias = 0
 
 
 class IncidenciaIn(BaseModel):
-    dni: str = Field(..., min_length=8, max_length=12, examples=["12345678Z"])
+    dni: str = Field(..., min_length=8, max_length=12, examples=["12345678"])
     motivo: str = Field(..., min_length=3, max_length=200)
     canal: str = Field(default="voz", examples=["voz", "chat", "email"])
     conversation_id: Optional[str] = Field(
@@ -112,6 +112,33 @@ def validar_api_key(x_api_key: Optional[str]) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Normalizacion de DNI
+# ---------------------------------------------------------------------------
+
+
+def solo_digitos(valor: str) -> str:
+    """Devuelve unicamente los digitos de la cadena recibida.
+
+    El IVR captura el DNI por teclado telefonico, que no tiene letras, asi que
+    envia solo los 8 digitos. La letra es un caracter de control redundante:
+    el numero ya identifica al cliente de forma unica. Normalizando aqui, el
+    backend acepta '12345678', '12345678Z' o '12345678-Z' indistintamente.
+    """
+    return "".join(c for c in valor if c.isdigit())
+
+
+def buscar_cliente(dni: str) -> Optional[dict]:
+    """Localiza un cliente comparando solo la parte numerica del DNI."""
+    clave = solo_digitos(dni)
+    if not clave:
+        return None
+    for cliente in CLIENTES.values():
+        if solo_digitos(cliente["dni"]) == clave:
+            return cliente
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 
@@ -130,7 +157,7 @@ def get_cliente(
     """Devuelve cliente y su poliza. Es el endpoint que consume GetClientePorDNI."""
     validar_api_key(x_api_key)
 
-    cliente = CLIENTES.get(dni.upper().strip())
+    cliente = buscar_cliente(dni)
     if cliente is None:
         raise HTTPException(status_code=404, detail=f"Cliente {dni} no encontrado")
     return cliente
@@ -163,7 +190,8 @@ def crear_incidencia(
     """Alta de incidencia. Es el caso de escritura (POST con body)."""
     validar_api_key(x_api_key)
 
-    if payload.dni.upper().strip() not in CLIENTES:
+    cliente = buscar_cliente(payload.dni)
+    if cliente is None:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
     global _contador_incidencias
@@ -176,6 +204,8 @@ def crear_incidencia(
         "creada": datetime.now(timezone.utc).isoformat(),
         **payload.model_dump(),
     }
+    # Guarda el DNI canonico (con letra), venga como venga desde el IVR
+    registro["dni"] = cliente["dni"]
     INCIDENCIAS[ticket_id] = registro
 
     return IncidenciaOut(
