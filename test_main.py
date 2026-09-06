@@ -1,12 +1,18 @@
 """Tests de la API CRM. Ejecutar con: pytest -v"""
 
+import os
+
+# La clave se fija ANTES de importar main: CLAVES_VALIDAS se construye en el
+# momento del import, no en cada peticion. Si se define despues, el conjunto
+# queda vacio y todos los tests devolverian 401.
+os.environ["API_KEY"] = "clave-de-test"
+
 from fastapi.testclient import TestClient
 
-import main
 from main import app
 
 client = TestClient(app)
-HEADERS = {"X-API-Key": main.API_KEY}
+HEADERS = {"X-API-Key": os.environ["API_KEY"]}
 
 
 def test_health_sin_auth():
@@ -110,3 +116,19 @@ def test_incidencia_motivo_invalido_devuelve_422():
     payload = {"dni": "12345678Z", "motivo": "x"}
     r = client.post("/incidencias", json=payload, headers=HEADERS)
     assert r.status_code == 422
+    
+
+def test_clave_previa_tambien_es_valida():
+    """Rotacion con solapamiento: durante la ventana, ambas claves valen."""
+    import main
+
+    original = main.CLAVES_VALIDAS
+    main.CLAVES_VALIDAS = {"clave-de-test", "clave-antigua"}
+    try:
+        for clave in ("clave-de-test", "clave-antigua"):
+            r = client.get("/clientes/12345678", headers={"X-API-Key": clave})
+            assert r.status_code == 200, clave
+        r = client.get("/clientes/12345678", headers={"X-API-Key": "revocada"})
+        assert r.status_code == 401
+    finally:
+        main.CLAVES_VALIDAS = original
