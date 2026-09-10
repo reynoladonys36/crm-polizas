@@ -309,7 +309,6 @@ def clasificar(peticion: PeticionClasificar,
     except json.JSONDecodeError:
         return RespuestaClasificar(intencion="Otro", confianza=0.0,
                                    motivo="respuesta_no_json")
-        except Exception as e:
-        print("ERROR EN CLASIFICAR:", repr(e))
+            except Exception:
         return RespuestaClasificar(intencion="Otro", confianza=0.0,
                                    motivo="error_llm")
