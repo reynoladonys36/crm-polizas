@@ -288,7 +288,6 @@ def clasificar(peticion: PeticionClasificar,
         respuesta = cliente_llm.messages.create(
             model=MODELO,
             max_tokens=100,
-            temperature=0,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": texto}],
         )
