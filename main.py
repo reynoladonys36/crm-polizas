@@ -230,3 +230,85 @@ def get_incidencia(
     if incidencia is None:
         raise HTTPException(status_code=404, detail="Incidencia no encontrada")
     return incidencia
+
+import json
+import os
+from typing import Optional
+
+from anthropic import Anthropic
+from fastapi import Header
+from pydantic import BaseModel
+
+cliente_llm = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+
+MODELO = "claude-haiku-4-5-20251001"
+ETIQUETAS = {"ConsultarPoliza", "AbrirIncidencia", "Otro"}
+
+SYSTEM_PROMPT = """Eres un clasificador de intenciones de un contact center de seguros.
+Recibes la transcripcion de lo que ha dicho un cliente por telefono y devuelves
+una unica etiqueta.
+
+Etiquetas posibles:
+- ConsultarPoliza: quiere saber algo de su poliza (estado, cobertura, precio,
+  vencimiento, recibos).
+- AbrirIncidencia: le ha ocurrido un hecho o quiere dar parte, registrar una
+  gestion o poner una reclamacion.
+- Otro: cualquier otra cosa, o texto insuficiente para decidir.
+
+Responde EXCLUSIVAMENTE con un objeto JSON, sin texto adicional y sin markdown:
+{"intencion": "<etiqueta>", "confianza": <numero entre 0 y 1>}
+
+La transcripcion viene de un reconocedor de voz y puede contener errores.
+Si dudas entre dos etiquetas, devuelve la mas probable con confianza baja.
+Nunca inventes una etiqueta que no este en la lista."""
+
+
+class PeticionClasificar(BaseModel):
+    texto: str
+    conversation_id: Optional[str] = None
+
+
+class RespuestaClasificar(BaseModel):
+    intencion: str
+    confianza: float
+    motivo: str
+
+
+@app.post("/ia/clasificar", response_model=RespuestaClasificar)
+def clasificar(peticion: PeticionClasificar,
+               x_api_key: Optional[str] = Header(None)):
+    validar_api_key(x_api_key)
+
+    texto = peticion.texto.strip()
+    if len(texto) < 3:
+        return RespuestaClasificar(intencion="Otro", confianza=0.0,
+                                   motivo="texto_insuficiente")
+
+    try:
+        respuesta = cliente_llm.messages.create(
+            model=MODELO,
+            max_tokens=100,
+            temperature=0,
+            system=SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": texto}],
+        )
+        crudo = respuesta.content[0].text.strip()
+        crudo = crudo.replace("```json", "").replace("```", "").strip()
+        datos = json.loads(crudo)
+
+        intencion = datos.get("intencion", "Otro")
+        confianza = float(datos.get("confianza", 0.0))
+
+        if intencion not in ETIQUETAS:
+            return RespuestaClasificar(intencion="Otro", confianza=0.0,
+                                       motivo="etiqueta_no_permitida")
+
+        return RespuestaClasificar(intencion=intencion, confianza=confianza,
+                                   motivo="ok")
+
+    except json.JSONDecodeError:
+        return RespuestaClasificar(intencion="Otro", confianza=0.0,
+                                   motivo="respuesta_no_json")
+    except Exception:
+        return RespuestaClasificar(intencion="Otro", confianza=0.0,
+                                   motivo="error_llm")
