@@ -25,6 +25,23 @@ app = FastAPI(
 )
 
 
+from fastapi.responses import HTMLResponse
+
+@app.get("/demo-messenger", response_class=HTMLResponse)
+def demo_messenger():
+    return """
+    <!DOCTYPE html>
+    <html>
+      <head><title>Demo Seguros - Web Messenger</title></head>
+      <body>
+        <h1>Demo CRM Polizas</h1>
+        <p>El widget de chat aparece abajo a la derecha.</p>
+        <!-- SNIPPET_MESSENGER -->
+      </body>
+    </html>
+    """
+
+
 # ---------------------------------------------------------------------------
 # Datos en memoria (suficiente para pruebas de Data Actions)
 # ---------------------------------------------------------------------------
