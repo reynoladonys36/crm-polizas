@@ -36,7 +36,20 @@ def demo_messenger():
       <body>
         <h1>Demo CRM Polizas</h1>
         <p>El widget de chat aparece abajo a la derecha.</p>
-        <!-- SNIPPET_MESSENGER -->
+        <script type="text/javascript" charset="utf-8">
+  (function (g, e, n, es, ys) {
+    g['_genesysJs'] = e;
+    g[e] = g[e] || function () {
+      (g[e].q = g[e].q || []).push(arguments)
+    };
+    g[e].t = 1 * new Date();
+    g[e].c = es;
+    ys = document.createElement('script'); ys.async = 1; ys.src = n; ys.charset = 'utf-8'; document.head.appendChild(ys);
+  })(window, 'Genesys', 'https://apps.mypurecloud.com/genesys-bootstrap/genesys.min.js', {
+    environment: 'prod',
+    deploymentId: 'f9ae2d50-a32c-4740-a201-94a41e345420'
+  });
+</script>
       </body>
     </html>
     """
