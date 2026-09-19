@@ -25,6 +25,30 @@ app = FastAPI(
 )
 
 
+import csv
+import io
+from fastapi.responses import StreamingResponse
+
+@app.get("/clientes/export")
+def exportar_impagados(x_api_key: Optional[str] = Header(None)):
+    validar_api_key(x_api_key)
+
+    filas = [c for c in CLIENTES.values() if c["estado_poliza"] == "impagada"]
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(["dni", "nombre", "telefono", "zona_horaria"])
+    for c in filas:
+        writer.writerow([c["dni"], c["nombre"], c["telefono"], "Europe/Madrid"])
+
+    buffer.seek(0)
+    return StreamingResponse(
+        iter([buffer.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=recibos_pendientes.csv"},
+    )
+
+
 from fastapi.responses import HTMLResponse
 
 @app.get("/demo-messenger", response_class=HTMLResponse)
