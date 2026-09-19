@@ -33,7 +33,7 @@ from fastapi.responses import StreamingResponse
 def exportar_impagados(x_api_key: Optional[str] = Header(None)):
     validar_api_key(x_api_key)
 
-    filas = [c for c in CLIENTES.values() if c["estado_poliza"] == "impagada"]
+    filas = [c for c in CLIENTES.values() if c["poliza"]["estado"] == "impagada"]
 
     buffer = io.StringIO()
     writer = csv.writer(buffer)
